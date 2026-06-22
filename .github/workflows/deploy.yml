@@ -13,6 +13,7 @@ env:
   PYTHON_VERSION: '3.11'
   AZURE_FUNCTIONAPP_NAME: 'sre-dataops-demo-func'
   AZURE_RESOURCE_GROUP: 'rg-sre-agent-dataops-demo'
+  AZURE_STORAGE_ACCOUNT: 'stsredataopsdemo2jj2mypj'
 
 jobs:
   build-and-deploy:
@@ -41,9 +42,27 @@ jobs:
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           zip -r ../../function.zip .
 
-      - name: Deploy to Azure Function App
+      - name: Upload package to blob (AAD auth)
         run: |
-          az functionapp deployment source config-zip \
+          az storage container create \
+            --account-name ${{ env.AZURE_STORAGE_ACCOUNT }} \
+            --name deployments \
+            --auth-mode login
+          az storage blob upload \
+            --account-name ${{ env.AZURE_STORAGE_ACCOUNT }} \
+            --container-name deployments \
+            --name function-http-demo.zip \
+            --file function.zip \
+            --auth-mode login \
+            --overwrite
+
+      - name: Point Function App to package URL via managed identity
+        run: |
+          PACKAGE_URL="https://${{ env.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/deployments/function-http-demo.zip"
+          az functionapp config appsettings set \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
-            --src function.zip
+            --settings WEBSITE_RUN_FROM_PACKAGE=$PACKAGE_URL WEBSITE_RUN_FROM_PACKAGE_BLOB_MI_RESOURCE_ID=SystemAssigned
+          az functionapp restart \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_FUNCTIONAPP_NAME }}
