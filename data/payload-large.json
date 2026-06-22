@@ -1,0 +1,5 @@
+{
+  "batch_id": "demo-large",
+  "rows": 200000,
+  "source": "manual"
+}

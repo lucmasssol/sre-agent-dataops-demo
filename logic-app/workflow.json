@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "functionUrl": {
+      "type": "String"
+    }
+  },
+  "triggers": {
+    "Every_2_minutes": {
+      "type": "Recurrence",
+      "recurrence": {
+        "frequency": "Minute",
+        "interval": 2
+      }
+    }
+  },
+  "actions": {
+    "Call_Function_HTTP_Trigger": {
+      "type": "Http",
+      "inputs": {
+        "method": "POST",
+        "uri": "@parameters('functionUrl')",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "batch_id": "@{concat('batch-', utcNow())}",
+          "rows": 1000,
+          "source": "logicapp"
+        }
+      },
+      "runAfter": {}
+    }
+  },
+  "outputs": {}
+}
