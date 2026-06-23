@@ -18,6 +18,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         rows,
     )
 
+    if rows > 50000:
+        # Unhandled — App Insights tracks this as a true failure
+        raise RuntimeError("memory pressure detected on large batch")
+
     processed_rows = rows
 
     result = {
