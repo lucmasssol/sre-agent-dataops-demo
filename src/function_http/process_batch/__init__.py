@@ -9,6 +9,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     rows = int(payload.get("rows", 0))
     source = str(payload.get("source", "logicapp"))
 
+    if rows > 50000:
+        raise RuntimeError("memory pressure detected on large batch")
+
     logging.info(
         "DataOps batch received | batch_id=%s source=%s rows=%d",
         batch_id,
