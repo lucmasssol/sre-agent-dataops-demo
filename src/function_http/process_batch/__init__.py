@@ -4,46 +4,39 @@ import azure.functions as func
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    try:
-        payload = req.get_json()
-        batch_id = str(payload.get("batch_id", "unknown"))
-        rows = int(payload.get("rows", 0))
-        source = str(payload.get("source", "logicapp"))
+    payload = req.get_json()
+    batch_id = str(payload.get("batch_id", "unknown"))
+    rows = int(payload.get("rows", 0))
+    source = str(payload.get("source", "logicapp"))
 
-        if rows > 50000:
-            raise RuntimeError("memory pressure detected on large batch")
+    logging.info(
+        "DataOps batch received | batch_id=%s source=%s rows=%d",
+        batch_id,
+        source,
+        rows,
+    )
 
-        logging.info(
-            "DataOps batch received | batch_id=%s source=%s rows=%d",
-            batch_id,
-            source,
-            rows,
-        )
+    if rows > 50000:
+        # Unhandled — App Insights tracks this as a true failure
+        raise RuntimeError("memory pressure detected on large batch")
 
-        processed_rows = rows
+    processed_rows = rows
 
-        result = {
-            "status": "ok",
-            "batch_id": batch_id,
-            "source": source,
-            "processed_rows": processed_rows,
-        }
+    result = {
+        "status": "ok",
+        "batch_id": batch_id,
+        "source": source,
+        "processed_rows": processed_rows,
+    }
 
-        logging.info(
-            "DataOps batch processed | batch_id=%s processed_rows=%d",
-            batch_id,
-            processed_rows,
-        )
+    logging.info(
+        "DataOps batch processed | batch_id=%s processed_rows=%d",
+        batch_id,
+        processed_rows,
+    )
 
-        return func.HttpResponse(
-            json.dumps(result),
-            status_code=200,
-            mimetype="application/json",
-        )
-    except Exception as exc:
-        logging.exception("DataOps batch failed: %s", exc)
-        return func.HttpResponse(
-            json.dumps({"status": "error", "message": str(exc)}),
-            status_code=500,
-            mimetype="application/json",
-        )
+    return func.HttpResponse(
+        json.dumps(result),
+        status_code=200,
+        mimetype="application/json",
+    )
