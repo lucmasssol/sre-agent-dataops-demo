@@ -8,12 +8,14 @@ on:
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write  # Required to create GitHub releases
+
 env:
   AZURE_FUNCTIONAPP_PACKAGE_PATH: 'src/function_http'
   PYTHON_VERSION: '3.11'
   AZURE_FUNCTIONAPP_NAME: 'sre-dataops-demo-func'
   AZURE_RESOURCE_GROUP: 'rg-sre-agent-dataops-demo'
-  AZURE_STORAGE_ACCOUNT: 'stsredataopsdemo2jj2mypj'
 
 jobs:
   build-and-deploy:
@@ -40,29 +42,27 @@ jobs:
       - name: Create deployment package
         run: |
           cd ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          zip -r ../../function.zip .
+          zip -r ../../function-http-demo.zip .
 
-      - name: Upload package to blob (AAD auth)
+      - name: Publish as GitHub Release asset
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          az storage container create \
-            --account-name ${{ env.AZURE_STORAGE_ACCOUNT }} \
-            --name deployments \
-            --auth-mode login
-          az storage blob upload \
-            --account-name ${{ env.AZURE_STORAGE_ACCOUNT }} \
-            --container-name deployments \
-            --name function-http-demo.zip \
-            --file function.zip \
-            --auth-mode login \
-            --overwrite
+          TAG="deploy-$(date +%Y%m%d-%H%M%S)"
+          gh release create "$TAG" function-http-demo.zip \
+            --title "Deployment $TAG" \
+            --notes "Automated deployment from commit ${{ github.sha }}" \
+            --repo ${{ github.repository }}
+          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/function-http-demo.zip"
+          echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
 
-      - name: Point Function App to package URL via managed identity
+      - name: Update Function App to new package
         run: |
-          PACKAGE_URL="https://${{ env.AZURE_STORAGE_ACCOUNT }}.blob.core.windows.net/deployments/function-http-demo.zip"
           az functionapp config appsettings set \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_FUNCTIONAPP_NAME }} \
-            --settings WEBSITE_RUN_FROM_PACKAGE=$PACKAGE_URL WEBSITE_RUN_FROM_PACKAGE_BLOB_MI_RESOURCE_ID=SystemAssigned
+            --settings WEBSITE_RUN_FROM_PACKAGE=${{ steps.release.outputs.asset_url }}
           az functionapp restart \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_FUNCTIONAPP_NAME }}
